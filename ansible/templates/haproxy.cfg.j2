@@ -1,0 +1,47 @@
+# {{ ansible_managed }}
+
+global
+  daemon
+  user {{ haproxy_user.username }}
+  group {{ haproxy_user.group }}
+  log 127.0.0.1 local0
+  log 127.0.0.1 local1 notice
+  maxconn 4096
+  tune.ssl.default-dh-param 2048
+
+defaults
+    timeout http-keep-alive 10s
+    log     global
+    mode    tcp
+    option  tcplog
+    option  dontlognull
+    retries 2
+    timeout client 40m
+    timeout connect 4s
+    timeout server 40m
+    timeout check 5s
+
+listen stats
+  bind 127.0.0.1:9090
+  balance
+  mode http
+  stats enable
+  stats auth admin:admin
+
+listen pg_ReadWrite
+    bind *:5000
+    option httpchk OPTIONS /master
+    http-check expect status 200
+    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+    {% for host in groups["postgres"] %}
+    server Cluster_psqlrw{{ loop.index }} {{ host }}:5432 maxconn 1000 check port {{ hostvars[host].postgres_rw_port }}
+    {% endfor %}
+
+listen pg_ReadOnly
+    bind *:5001
+    option httpchk OPTIONS /master
+    http-check expect status 200
+    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+    {% for host in groups["postgres"] %}
+    server Cluster_psqlro{{ loop.index }} {{ host }}:5432 maxconn 1000 check port {{ hostvars[host].postgres_ro_port }}
+    {% endfor %}

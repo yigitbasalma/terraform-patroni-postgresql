@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+
+{% set initial_cluster = [] %}
+{% for host in groups['etcd'] %}
+    {{ initial_cluster.append(hostvars[host].ansible_hostname + "=http://" + host + ":2380") }}
+{% endfor %}
+
+#[Member]
+ETCD_DATA_DIR="{{ etcd_data_dir }}/default.etcd"
+ETCD_LISTEN_PEER_URLS="http://{{ inventory_hostname }}:2380"
+ETCD_LISTEN_CLIENT_URLS="http://{{ inventory_hostname }}:2379"
+ETCD_NAME="{{ hostvars[inventory_hostname].ansible_hostname }}"
+
+#[Clustering]
+ETCD_INITIAL_ADVERTISE_PEER_URLS="http://{{ inventory_hostname }}:2380"
+ETCD_ADVERTISE_CLIENT_URLS="http://{{ inventory_hostname }}:2379"
+ETCD_INITIAL_CLUSTER="{{ initial_cluster | join(",") }}"
+ETCD_INITIAL_TOKEN="{{ etcd_initial_token.stdout }}"
+ETCD_INITIAL_STATE="new"
+ETCD_ENABLE_V2="true"

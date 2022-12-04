@@ -1,0 +1,30 @@
+---
+ - name: Install haproxy
+   ansible.builtin.dnf:
+     name: "haproxy"
+     state: latest
+
+ - name: Create haproxy group
+   group:
+     name: "{{ haproxy_user.group }}"
+     state: present
+
+ - name: Create haproxy user
+   user:
+     name: "{{ haproxy_user.username }}"
+     group: "{{ haproxy_user.group }}"
+     state: present
+
+ - name: Template haproxy cfg
+   template:
+     src: ../templates/haproxy.cfg.j2
+     dest: "{{ haproxy_config_file }}"
+     group: "{{ haproxy_user.group }}"
+     owner: "{{ haproxy_user.username }}"
+     mode: 0644
+
+ - name: Restart service haproxy
+   ansible.builtin.systemd:
+     state: restarted
+     daemon_reload: yes
+     name: haproxy

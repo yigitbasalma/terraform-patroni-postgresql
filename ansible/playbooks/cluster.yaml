@@ -1,0 +1,57 @@
+- name: Initial Configs
+  hosts: all
+  become: true
+  gather_facts: no
+  tasks:
+    - name: Wait for system to become reachable
+      wait_for_connection:
+
+    - name: Gather facts
+      setup:
+
+    - name: Wait for file /home/rocky/success
+      wait_for:
+        path: /home/rocky/success
+        delay: 10
+
+    - name: Import common variables
+      include_vars:
+        file: "{{ item }}"
+      with_items:
+        - "../vars/main.yaml"
+
+    - name: Include tasks
+      include_tasks: "{{ item }}"
+      loop:
+        - "../tasks/prerequisites.yaml"
+
+- name: Create HAProxy Cluster
+  hosts: haproxy
+  become: true
+  gather_facts: no
+  tasks:
+    - name: Include tasks
+      include_tasks: "{{ item }}"
+      loop:
+        - "../tasks/haproxy.yaml"
+
+- name: Create ETCD Cluster
+  hosts: etcd
+  become: true
+  gather_facts: no
+  tasks:
+    - name: Include tasks
+      include_tasks: "{{ item }}"
+      loop:
+        - "../tasks/etcd.yaml"
+
+- name: Create Patroni/Postgres Cluster
+  hosts: postgres
+  become: true
+  gather_facts: no
+  tasks:
+    - name: Include tasks
+      include_tasks: "{{ item }}"
+      loop:
+        - "../tasks/postgres.yaml"
+        - "../tasks/patroni.yaml"

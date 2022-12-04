@@ -1,0 +1,87 @@
+---
+ - name: Install postgres repo
+   ansible.builtin.dnf:
+     name: "{{ postgres_repo_url }}"
+     state: present
+     disable_gpg_check: yes
+
+ - name: Disable default postgres module
+   copy:
+     dest: /etc/dnf/modules.d/postgresql.module
+     content: |
+       [postgresql]
+       name=postgresql
+       stream=
+       profiles=
+       state=disabled
+
+ - name: Install postgres packages
+   ansible.builtin.dnf:
+     name: "{{ package }}"
+     state: latest
+   with_items: "{{ postgres_packages }}"
+   loop_control:
+     loop_var: package
+
+ - name: Create postgres data directories
+   ansible.builtin.file:
+     path: "{{ postgres_data_dir }}"
+     state: directory
+     group: '{{ postgres_user.group }}'
+     owner: '{{ postgres_user.username }}'
+     mode: 0750
+
+ - name: Change postgres data base dir ownership
+   shell: |
+     chown -R {{ postgres_user.username }}:{{ postgres_user.group }} {{ postgres_base_dir }}
+
+ - name: Get postgresql service name
+   shell: |
+     find /usr/lib/systemd/system -name "postgresql*" | awk -F "/" '{print $NF}'
+   register: postgres_service_name
+
+ - name: Reload systemd file
+   ansible.builtin.systemd:
+     daemon_reload: yes
+
+ - name: Update grub for huge page config
+   ansible.builtin.lineinfile:
+     path: /etc/default/grub
+     backrefs: yes
+     regexp: '^(GRUB_CMDLINE_LINUX=(?!.* transparent_hugepage)\"[^\"]+)(\".*)'
+     line: '\1 transparent_hugepage=never\2'
+
+ - name: Configure rc.local for disable huge page
+   ansible.builtin.blockinfile:
+     path: /etc/rc.local
+     marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
+     block: |
+       if test -f /sys/kernel/mm/transparent_hugepage/enabled; then
+         echo never > /sys/kernel/mm/transparent_hugepage/enabled
+       fi
+       
+       if test -f /sys/kernel/mm/transparent_hugepage/defrag; then
+         echo never > /sys/kernel/mm/transparent_hugepage/defrag
+       fi
+
+ - name: Configure systemctl for performance
+   ansible.posix.sysctl:
+     name: "{{ parameter.key }}"
+     value: "{{ parameter.value }}"
+     state: present
+   with_dict: "{{ postgres_sysctl_parameters }}"
+   loop_control:
+     loop_var: parameter
+
+ - name: Configure limits for postgres
+   ansible.builtin.blockinfile:
+     path: /etc/security/limits.conf
+     marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
+     block: |
+       postgres        soft    nofile  65536
+       postgres        hard    nofile  200000
+       postgres        soft    memlock 7340032
+       postgres        hard    memlock 7340032
+
+ - name: Reboot servers
+   ansible.builtin.reboot:

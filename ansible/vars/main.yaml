@@ -1,0 +1,61 @@
+# HAProxy configurations
+haproxy_config_file: /etc/haproxy/haproxy.cfg
+haproxy_user:
+  username: haproxy
+  group: haproxy
+
+# ETCD configurations
+etcd_config_file: /etc/etcd/etcd.conf
+etcd_user:
+  username: etcd
+  group: etcd
+etcd_data_dir: /var/lib/etcd
+etcd_repo_file: /etc/yum.repos.d/etcd.repo
+
+# PostgreSQL configurations
+postgres_repo_url: https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+postgres_packages:
+  - postgresql13
+  - postgresql13-server
+  - postgresql13-contrib
+  - postgresql13-libs
+postgres_ro_port: 8008
+postgres_rw_port: 8007
+postgres_user:
+  username: postgres
+  group: postgres
+postgres_base_dir: /opt/data
+postgres_data_dir: "{{ postgres_base_dir }}/postgresql"
+postgres_config_file: "{{ postgres_data_dir }}/postgresql.conf"
+postgres_sysctl_parameters:
+  "net.ipv4.ip_nonlocal_bind": 1
+  "net.ipv4.ip_forward": 1
+  "net.ipv4.ip_local_port_range": 1024 65535
+  "net.core.netdev_max_backlog": 10000
+  "net.ipv4.tcp_max_syn_backlog": 8192
+  "net.core.somaxconn": 65535
+  "vm.swappiness": 1
+  "vm.min_free_kbytes": 102400
+  "vm.dirty_expire_centisecs": 1000
+  "vm.dirty_background_bytes": 67108864
+  "vm.dirty_bytes": 536870912
+  "vm.zone_reclaim_mode": 0
+  "kernel.numa_balancing": 0
+  "kernel.sched_migration_cost_ns": 5000000
+  "kernel.sched_autogroup_enabled": 0
+  "vm.nr_hugepages": 3584
+
+# Patroni configurations
+patroni_packages:
+  - python3
+  - python3-devel
+  - python3-psycopg2
+  - gcc
+patroni_python_packages:
+  - psycopg2-binary==2.8.6
+  - patroni[etcd3]
+patroni_home: /opt/patroni
+patroni_log: "{{ patroni_home }}/logs"
+patroni_archive: "{{ patroni_home }}/arch"
+patroni_config_file: "{{ patroni_home }}/patroni.yaml"
+patroni_service_file: /usr/lib/systemd/system/patroni.service

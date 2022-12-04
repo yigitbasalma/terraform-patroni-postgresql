@@ -1,0 +1,129 @@
+# {{ ansible_managed }}
+{% set etcd_cluster = [] %}
+{% for host in groups['etcd'] %}
+    {{ etcd_cluster.append(host + ":2379") }}
+{% endfor %}
+scope: pg-cluster
+namespace: /db/
+name: {{ hostvars[inventory_hostname].ansible_hostname }}
+log:
+  dir: {{ patroni_log }}
+  level: INFO
+restapi:
+    listen: {{ inventory_hostname }}:8008
+    connect_address: {{ inventory_hostname }}:8008
+etcd:
+    hosts: {{ etcd_cluster | join(",") }}
+    protocol: http
+bootstrap:
+    dcs:
+        ttl: 30
+        loop_wait: 10
+        retry_timeout: 10
+        maximum_lag_on_failover: 1048576
+        postgresql:
+            use_pg_rewind: true
+            use_slots: true
+    initdb:
+    - encoding: UTF8
+    - data-checksums
+    pg_hba:
+      - local all all trust
+      - host all all ::/0 md5
+      - host all all 127.0.0.1/32 md5
+      - host all all 0.0.0.0/0 md5
+      - host replication repuser ::/0 md5
+      - host replication repuser 127.0.0.1/32 md5
+      {% for host in groups['postgres'] -%}
+      - host all all {{ host }}/32 md5
+      - host replication repuser {{ host }}/32 md5
+      {% endfor %}
+
+    users:
+        admin:
+            password: admin
+            options:
+                - createrole
+                - createdb
+
+postgresql:
+    listen: "*:5432"
+    connect_address: {{ inventory_hostname }}:5432
+    data_dir: {{ postgres_data_dir }}
+    config_dir: {{ postgres_data_dir }}
+    bin_dir : {{ postgres_bin_dir.stdout }}/bin
+    authentication:
+        replication:
+            username: repuser
+            password: repuser
+        superuser:
+            username: patroni
+            password: patroni
+    parameters:
+        archive_command: /bin/gzip -c %p > {{ patroni_archive }}/%f.gz
+        archive_mode: true
+        archive_timeout: 1800s
+        auto_explain.log_analyze: true
+        auto_explain.log_buffers: true
+        auto_explain.log_min_duration: 10s
+        auto_explain.log_nested_statements: true
+        auto_explain.log_timing: false
+        auto_explain.log_triggers: true
+        auto_explain.log_verbose: true
+        autovacuum: true
+        autovacuum_analyze_scale_factor: 0.02
+        autovacuum_max_workers: 5
+        autovacuum_naptime: 1s
+        autovacuum_vacuum_cost_delay: 20
+        autovacuum_vacuum_cost_limit: 200
+        autovacuum_vacuum_scale_factor: 0.01
+        checkpoint_completion_target: 0.9
+        checkpoint_timeout: 15min
+        default_statistics_target: 1000
+        effective_cache_size: 12GB
+        effective_io_concurrency: 2
+        huge_pages: true
+        log_autovacuum_min_duration: 0
+        log_checkpoints: true
+        log_connections: false
+        log_disconnections: false
+        log_filename: postgresql-%Y-%m-%d_%H%M%S.log
+        log_line_prefix: '%t [%p]= [%l-1] %quser=%u,db=%d,app=%a,client=%h '
+        log_lock_waits: true
+        log_min_duration_statement: 5000
+        log_rotation_age: 1d
+        log_rotation_size: 0
+        log_temp_files: 0
+        log_truncate_on_rotation: true
+        logging_collector: true
+        maintenance_work_mem: 1024MB
+        max_connections: 1000
+        max_files_per_process: 4096
+        max_locks_per_transaction: 64
+        max_prepared_transactions: 0
+        max_replication_slots: 10
+        max_wal_size: 100GB
+        min_wal_size: 80GB
+        pg_stat_statements.max: 10000
+        pg_stat_statements.save: false
+        pg_stat_statements.track: all
+        random_page_cost: 4
+        restore_command: gunzip < /data/pg/arch/%f > %p
+        seq_page_cost: 1
+        shared_buffers: 6GB
+        shared_preload_libraries: pg_stat_statements,auto_explain
+        superuser_reserved_connections: 3
+        track_activities: true
+        track_activity_query_size: 2048
+        track_counts: true
+        track_functions: all
+        track_io_timing: true
+        wal_buffers: 32MB
+        wal_keep_size: 80000MB
+        work_mem: 128MB
+
+tags:
+    nofailover: false
+    noloadbalance: false
+    clonefrom: false
+    nosync: false

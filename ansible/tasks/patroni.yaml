@@ -1,0 +1,53 @@
+---
+ - name: Install patroni packages
+   ansible.builtin.dnf:
+     name: "{{ package }}"
+     state: latest
+   with_items: "{{ patroni_packages }}"
+   loop_control:
+     loop_var: package
+
+ - name: Install patroni python packages
+   ansible.builtin.pip:
+     name: "{{ package }}"
+   with_items: "{{ patroni_python_packages }}"
+   loop_control:
+     loop_var: package
+
+ - name: Create patroni directories
+   ansible.builtin.file:
+     path: "{{ directory }}"
+     state: directory
+     group: '{{ postgres_user.group }}'
+     owner: '{{ postgres_user.username }}'
+     mode: 0755
+   with_items:
+     - "{{ patroni_home }}"
+     - "{{ patroni_log }}"
+     - "{{ patroni_archive }}"
+   loop_control:
+     loop_var: directory
+
+ - name: Get postgresql bin dir
+   shell: |
+     find /usr/ -maxdepth 1 -name "pgsql*" -type d
+   register: postgres_bin_dir
+
+ - name: Template patroni.yaml
+   template:
+     src: ../templates/patroni.yaml.j2
+     dest: "{{ patroni_config_file }}"
+     group: "{{ postgres_user.group }}"
+     owner: "{{ postgres_user.username }}"
+     mode: 0744
+
+ - name: Template systemd file
+   template:
+     src: ../templates/patroni.service.j2
+     dest: "{{ patroni_service_file }}"
+
+ - name: Restart service patroni
+   ansible.builtin.systemd:
+     state: restarted
+     daemon_reload: yes
+     name: patroni

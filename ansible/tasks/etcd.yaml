@@ -1,0 +1,26 @@
+---
+ - name: Copy etcd repo file
+   template:
+     src: ../templates/etcd.repo.j2
+     dest: "{{ etcd_repo_file }}"
+     mode: 0755
+
+ - name: Install etcd
+   ansible.builtin.dnf:
+     name: etcd
+     state: present
+     disable_gpg_check: yes
+
+ - name: Template etcd cfg file
+   template:
+     src: ../templates/etcd.conf.j2
+     dest: "{{ etcd_config_file }}"
+     group: "{{ etcd_user.group }}"
+     owner: "{{ etcd_user.username }}"
+     mode: 0755
+
+ - name: Restart service etcd
+   ansible.builtin.systemd:
+     state: restarted
+     daemon_reload: yes
+     name: etcd
