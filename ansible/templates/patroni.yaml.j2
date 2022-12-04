@@ -108,7 +108,7 @@ postgresql:
         pg_stat_statements.save: false
         pg_stat_statements.track: all
         random_page_cost: 4
-        restore_command: gunzip < /data/pg/arch/%f > %p
+        restore_command: gunzip < {{ patroni_archive }}/%f > %p
         seq_page_cost: 1
         shared_buffers: 6GB
         shared_preload_libraries: pg_stat_statements,auto_explain
